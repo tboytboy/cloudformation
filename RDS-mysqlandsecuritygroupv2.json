@@ -1,0 +1,159 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Create a DB subnet group and MYSQL Database",
+    "Parameters": {
+        "DBInstanceName": {
+            "Type": "String",
+            "Description": "The name of the DB instance",
+            "Default": "aws-dxl-database-1"
+        },       
+        "VPC": {
+            "Type": "String",
+            "Description": "The VPC to create the cluster",
+            "Default": "vpc-ID"
+        },
+        "PrivateSubnet01": {
+            "Type": "String",
+            "Description": "The subnet for the DB cluster",
+            "Default": "subnet-ID"
+        },
+        "PrivateSubnet02": {
+            "Type": "String",
+            "Description": "The subnet for the DB cluster",
+            "Default": "subnet-ID"
+        },
+        "MasterUsername": {
+            "Type": "String",
+            "Description": "The username for our database."
+        },
+        "MasterUserPassword": {
+            "Type": "String",
+            "Description": "The password for the database.",
+            "NoEcho": true
+        },
+        "ParameterGroup": {
+            "Type": "String",
+            "Description": "The name of the database parameter group created."
+        }
+    },
+    "Resources": {
+        "EC2SecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Database instances security group",
+                "GroupName": {
+                    "Fn::Sub": [ "${Name}-SecurityGroup", { "Name": {"Ref" : "DBInstanceName" }} ]
+                },
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "CidrIp": "172.31.0.0/16",
+                        "FromPort": 3306,
+                        "IpProtocol": "tcp",
+                        "ToPort": 3306
+                    }
+                ],
+                "SecurityGroupEgress": [
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "IpProtocol": "-1"
+                    }
+                ]
+            }
+        },
+        "RDSDBSubnetGroup": {
+            "Type": "AWS::RDS::DBSubnetGroup",
+            "Properties": {
+                "DBSubnetGroupDescription": "Subnet Group for mySQL database",
+                "DBSubnetGroupName": {
+                    "Fn::Sub": [ "SubnetGroup.${Name}", { "Name": {"Ref" : "DBInstanceName" }} ]
+                },
+                "SubnetIds": [
+                    {
+                        "Ref": "PrivateSubnet01"
+                    },
+                    {
+                        "Ref": "PrivateSubnet02"
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "RDSDBSubnetGroup"
+                    }
+                ]
+            }
+        },
+        "RDSDBInstance": {
+            "Type": "AWS::RDS::DBInstance",
+            "Properties": {
+                "DBInstanceIdentifier": {
+                    "Ref": "DBInstanceName"
+                },
+                "AllocatedStorage": 100,
+                "DBInstanceClass": "db.m5.large",
+                "Engine": "MYSQL",
+                "MasterUsername": {
+                    "Ref": "MasterUsername"
+                },
+                "MasterUserPassword": {
+                    "Ref": "MasterUserPassword"
+                },
+                "BackupRetentionPeriod": 7,
+                "MultiAZ": true,
+                "EngineVersion": "8.0.20",
+                "AutoMinorVersionUpgrade": true,
+                "Iops": 1000,
+                "PubliclyAccessible": false,
+                "StorageType": "io1",
+                "Port": 3306,
+                "StorageEncrypted": true,
+                "CopyTagsToSnapshot": true,
+                "MonitoringInterval": 60,
+                "EnableIAMDatabaseAuthentication": false,
+                "EnablePerformanceInsights": true,
+                "PerformanceInsightsRetentionPeriod": 7,
+                "DeletionProtection": false,
+                "DBSubnetGroupName": {
+                    "Ref": "RDSDBSubnetGroup"
+                },
+                "VPCSecurityGroups": [
+                    {
+                        "Ref": "EC2SecurityGroup"
+                    }
+                ],
+                "MaxAllocatedStorage": 1000,
+                "DBParameterGroupName": {
+                    "Ref": "ParameterGroup"
+                },
+                "MonitoringRoleArn": {
+                    "Fn::Sub": "arn:aws:iam::142747231177:role/rds-monitoring-role"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "DBInstanceName"
+                        }
+                    }
+                ]
+            }
+        }
+    },
+    "Outputs": {
+        "Cluster": {
+            "Description": "The DB Cluster Name",
+            "Value": {
+                "Ref": "RDSDBInstance"
+            }
+        },
+        "SubnetGroup": {
+            "Description": "The db subnet group name",
+            "Value": {
+                "Ref": "RDSDBSubnetGroup"
+            }
+        }
+    }
+}
